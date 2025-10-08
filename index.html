@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ลอยกระทงออนไลน์</title>
+<style>
+  :root {
+    --water-height: 55vh;
+    --krathong-width: 120px;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: "Noto Sans Thai", sans-serif;
+    color: #fff;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* ✅ พื้นหลังเต็มจอ */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("a84b4a04-883d-4e0e-9e54-3ecdeaf00d9a.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: brightness(0.85);
+    z-index: 0;
+  }
+
+  /* ชั้นแสงจันทร์สะท้อน */
+  .moon-reflection {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50vh;
+    background: radial-gradient(ellipse at center,
+      rgba(255,255,255,0.35) 0%,
+      rgba(255,255,255,0.05) 30%,
+      rgba(0,10,20,0.2) 100%);
+    opacity: 0.4;
+    animation: shimmer 6s ease-in-out infinite;
+    z-index: 1;
+    mix-blend-mode: screen;
+  }
+  @keyframes shimmer {
+    0%,100% { transform: translateY(0) scaleY(1); }
+    50% { transform: translateY(3%) scaleY(1.1); }
+  }
+
+  .ripple {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 55vh;
+    background: repeating-radial-gradient(circle at 50% 0%,
+      rgba(255,255,255,0.05) 0,
+      rgba(255,255,255,0.03) 2px,
+      transparent 4px,
+      transparent 12px);
+    animation: rippleMove 12s linear infinite;
+    z-index: 2;
+  }
+  @keyframes rippleMove {
+    0% { background-position:50% 0%; }
+    100% { background-position:48% 20%; }
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 10%, rgba(0,0,0,0.2) 80%);
+    z-index: 3;
+  }
+
+  .wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 100vh;
+    padding: 20px;
+    z-index: 4;
+  }
+
+  header {
+    text-align: center;
+    margin-top: 10px;
+  }
+  header h1 {
+    font-size: clamp(22px, 4vw, 36px);
+    margin-bottom: 8px;
+    text-shadow: 0 0 15px rgba(255,255,255,0.6);
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  input[type=text] {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    min-width: 220px;
+  }
+
+  button {
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 0;
+    cursor: pointer;
+    font-weight: 600;
+    color: #222;
+    background: #ffb84d;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    height: var(--water-height);
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    left: 0;
+    top: 0;
+  }
+
+  footer {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-top: 10px;
+  }
+
+  /* เอฟเฟกต์คำอธิษฐาน */
+  .wish-text {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 1.5rem;
+    text-shadow: 0 0 8px #000;
+    z-index: 5;
+    animation: fadeUp 5s ease-in-out forwards;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translate(-50%, -30%); }
+    to { opacity: 1; transform: translate(-50%, -60%); }
+  }
+</style>
+</head>
+
+<body>
+  <div class="overlay"></div>
+  <div class="moon-reflection"></div>
+  <div class="ripple"></div>
+
+  <div class="wrap">
+    <header>
+      <h1>ลอยกระทงออนไลน์ 🌕</h1>
+      <div class="controls">
+        <input id="msg" type="text" placeholder="พิมพ์คำอธิษฐานของคุณ..." maxlength="40" />
+        <button id="launchBtn">ปล่อยกระทง</button>
+        <button id="clearBtn" style="background:#666;color:#fff;">ลบทั้งหมด</button>
+      </div>
+    </header>
+
+    <div class="stage" id="stage">
+      <canvas id="c"></canvas>
+    </div>
+
+    <footer>✨ แสงจันทร์สะท้อนน้ำ — ปรับโดย ChatGPT</footer>
+  </div>
+
+  <script>
+    (function(){
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+      const stage = document.getElementById('stage');
+      const DPR = window.devicePixelRatio || 1;
+
+      function resize(){
+        const rect = stage.getBoundingClientRect();
+        canvas.width = rect.width * DPR;
+        canvas.height = rect.height * DPR;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function escapeForSVG(s){
+        return s.replace(/[&<>]/g, m => {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m];
+        });
+      }
+
+      function makeSVG(msg){
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'>
+          <defs><linearGradient id='g' x1='0' x2='0' y1='0' y2='1'>
+            <stop offset='0%' stop-color='#ffdd8f'/><stop offset='100%' stop-color='#ffb84d'/>
+          </linearGradient></defs>
+          <path d='M40 120 C60 60 240 60 260 120 C220 140 80 140 40 120Z' fill='url(#g)' stroke='#a65f2a' stroke-width='3'/>
+          <rect x='140' y='40' width='20' height='50' rx='4' fill='#fff4d0' stroke='#cca86b' stroke-width='2'/>
+          <path d='M150 40 C155 32 160 24 150 15 C140 24 145 32 150 40Z' fill='#ffcf4d'/>
+          <text x='150' y='170' text-anchor='middle' font-size='18' fill='#3b1e0a' font-family='Noto Sans Thai'>${escapeForSVG(msg)}</text>
+        </svg>`;
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+      }
+
+      class Krathong {
+        constructor(msg){
+          this.img = new Image();
+          this.img.src = makeSVG(msg);
+          this.x = Math.random() * (canvas.width / DPR - 150);
+          this.y = (canvas.height / DPR) * 0.75;
+          this.vx = 0.3 + Math.random() * 0.3;
+          this.alpha = 1;
+          this.size = 100 + Math.random() * 40;
+          this.phase = Math.random() * Math.PI * 2;
+        }
+        update(dt){
+          this.x += this.vx * dt * 0.06;
+          this.y += Math.sin(Date.now() / 700 + this.phase) * 0.15;
+          this.alpha -= 0.0001 * dt;
+        }
+        draw(){
+          ctx.save();
+          ctx.globalAlpha = this.alpha;
+          ctx.drawImage(this.img, this.x, this.y, this.size, this.size * 0.7);
+          ctx.restore();
+        }
+      }
+
+      const krathongs = [];
+      let last = performance.now();
+      function loop(now){
+        const dt = now - last;
+        last = now;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // พื้นน้ำ
+        const w = canvas.width / DPR, h = canvas.height / DPR;
+        const grad = ctx.createLinearGradient(0, h * 0.4, 0, h);
+        grad.addColorStop(0, 'rgba(255,255,255,0.05)');
+        grad.addColorStop(1, 'rgba(0,10,30,0.8)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, h * 0.4, w, h * 0.6);
+
+        krathongs.forEach(k => { k.update(dt); k.draw(); });
+        for (let i = krathongs.length - 1; i >= 0; i--){
+          if (krathongs[i].alpha <= 0) {
+            krathongs.splice(i, 1);
+          }
+        }
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+
+      document.getElementById('launchBtn').onclick = () => {
+        const t = document.getElementById('msg').value.trim() || 'สุขสันต์วันลอยกระทง';
+        krathongs.push(new Krathong(t));
+      };
+      document.getElementById('clearBtn').onclick = () => {
+        krathongs.length = 0;
+      };
+    })();
+  </script>
+</body>
+</html>
